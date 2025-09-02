@@ -10,9 +10,10 @@ const router = express.Router();
 router.get(
   "/",
   authMiddleware,
-  uploadMiddleware.single("image"),
+  uploadMiddleware.single("image"), // multer middleware
   controller.getImages
 );
+
 // only admins can post an image
 router.post(
   "/",
@@ -21,5 +22,7 @@ router.post(
   uploadMiddleware.single("image"),
   controller.uploadImage
 );
+
+router.delete("/:id", authMiddleware, adminMiddleware, controller.deleteImage);
 
 module.exports = router;

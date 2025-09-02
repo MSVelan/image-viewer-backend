@@ -3,9 +3,7 @@ const cloudinary = require("../config/cloudinary.js");
 const uploadToCloudinary = async (filePath) => {
   // Upload an image
   try {
-    console.log(filePath);
     const uploadResult = await cloudinary.uploader.upload(filePath);
-    console.log(uploadResult);
     return {
       url: uploadResult.secure_url,
       publicId: uploadResult.public_id,
@@ -15,4 +13,22 @@ const uploadToCloudinary = async (filePath) => {
   }
 };
 
-module.exports = uploadToCloudinary;
+const deleteResource = async (publicId) => {
+  try {
+    const result = await cloudinary.uploader.destroy(publicId);
+    if (result.result === "ok") {
+      return true;
+    } else {
+      throw new Error("Cloudinary deletion failed");
+    }
+  } catch (err) {
+    throw new Error(
+      "Error occurred while deleting file from cloudinary: " + err.message
+    );
+  }
+};
+
+module.exports = {
+  uploadToCloudinary,
+  deleteResource,
+};

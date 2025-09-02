@@ -1,5 +1,8 @@
 const Image = require("../models/image.js");
-const uploadToCloudinary = require("../helpers/cloudinaryHelper.js");
+const {
+  uploadToCloudinary,
+  deleteResource,
+} = require("../helpers/cloudinaryHelper.js");
 const fs = require("fs");
 
 const uploadImage = async (req, res) => {
@@ -45,12 +48,20 @@ const uploadImage = async (req, res) => {
 const getImages = async (req, res) => {
   // get all images.
   try {
-    // get all images from mongoDB
+    // pagination and sorting functionality
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const skip = (page - 1) * limit;
 
-    // const userId = req.userInfo.userId;
-    // const images = Image.find({ uploadedBy: userId });
+    const sortBy = req.query.sortBy || "createdAt";
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+    const totalImages = await Image.countDocuments();
+    const totalPages = Math.ceil(totalImages / limit);
 
-    const images = await Image.find({});
+    const sortObj = {};
+    sortObj[sortBy] = sortOrder;
+
+    const images = await Image.find().sort(sortObj).skip(skip).limit(limit);
     if (!images) {
       return res.status(404).json({
         success: false,
@@ -60,7 +71,50 @@ const getImages = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      images,
+      currentPage: page,
+      totalPages: totalPages,
+      totalNumImages: totalImages,
+      data: images,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: `Error occurred: ${err}`,
+    });
+  }
+};
+
+const deleteImage = async (req, res) => {
+  // only person who uploaded the image can delete it.
+  // delete from Cloudinary and then from MongoDB
+  try {
+    const imageId = req.params.id;
+    const userId = req.userInfo.userId;
+
+    const image = await Image.findById(imageId);
+    if (!image) {
+      return res.status(404).json({
+        success: false,
+        message: "Image not found",
+      });
+    }
+
+    if (image.uploadedBy.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to delete the image",
+      });
+    }
+
+    // delete from Cloudinary
+    await deleteResource(image.publicId);
+
+    // delete from MongoDB
+    await Image.findByIdAndDelete(imageId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Image deleted successfully",
     });
   } catch (err) {
     res.status(500).json({
@@ -73,4 +127,5 @@ const getImages = async (req, res) => {
 module.exports = {
   uploadImage,
   getImages,
+  deleteImage,
 };
